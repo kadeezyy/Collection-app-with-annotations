@@ -53,14 +53,14 @@ public class Main {
 //        student1.addKittens(kitten6);
 //        student1.addKittens(kitten7);
 
-        System.out.println(student1.getByKey(2));
+        System.out.println(student1.getByKey(5));
         System.out.println(student1);
     }
 
     private static PostgreSQLDatabase initDatabase() {
         String user = "s341474";
         String password = "drj262";
-        SSHTunnel tunnel = new SSHTunnel("se.ifmo.ru", user, password, 2222, "pg", 8594, 5432);
+        SSHTunnel tunnel = new SSHTunnel("se.ifmo.ru", user, password, 2222, "pg", 8954, 5432);
         return new PostgreSQLDatabase("localhost", tunnel.create(), "studs", user, password);
     }
 }

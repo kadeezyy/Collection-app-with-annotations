@@ -28,14 +28,19 @@ public class Student {
                 }
             }
         }
+        validate();
     }
 
 
     @Override
     public String toString() {
-        validate();
+//        validate();
         List<String> kittensList = new ArrayList<>();
-        kittens.stream().forEach(kitten -> kittensList.add(kitten.getName()));
+        try {
+            kittens.forEach(kitten -> kittensList.add(kitten.getName()));
+        } catch (NullPointerException ex) {
+
+        }
         return (String.format("Любимые котята студента по имени '%s': \n", name) + kittensList.toString()
                 .replace("[", "").replace("]", " "));
     }
@@ -48,12 +53,26 @@ public class Student {
 
     public Kitten getByKey(int key) {
         validate();
-        collectionDataController.getByKey(key);
-        return kittens.get(key);
+        key--;
+        try {
+            for (Field field : this.getClass().getDeclaredFields()) {
+                if (field.isAnnotationPresent(CollectionField.class)) {
+                    CollectionField collectionField = field.getAnnotation(CollectionField.class);
+                    if (kittens.size() <= key) {
+                        while ((key - kittens.size()) / collectionField.pageSize() >= 0) {
+                            validate();
+                        }
+                    }
+                }
+            }
+            return kittens.get(key);
+        } catch (IndexOutOfBoundsException ex) {
+            System.out.println("В базе данных нет такого элемента");
+            return null;
+        }
     }
 
     public void addKittens(Kitten kitten) {
-
         kittens.add(kitten);
         collectionDataController.insertKitten(kitten);
     }
@@ -70,13 +89,13 @@ public class Student {
             if (field.isAnnotationPresent(CollectionField.class)) {
                 CollectionField collectionField = field.getAnnotation(CollectionField.class);
                 if (collectionField.mode().equals("EAGER") && !(collectionDataController == null)) {
-                    System.out.println("Hello EAGER");
+                    System.out.println("Hello EAGER!");
                     kittens = collectionDataController.getAllKittensOfStudent(this);
                     validated = true;
                 }
                 if (collectionField.mode().equals("LAZY")) {
                     if (kittens == null && !(collectionDataController == null)) {
-                        System.out.println("Hello LAZY");
+                        System.out.println("Hello LAZY!");
                         kittens = collectionDataController.getAllKittensOfStudent(this);
                         validated = true;
                     }
@@ -85,6 +104,31 @@ public class Student {
                     }
                 }
                 if (collectionField.mode().equals("PAGE")) {
+                    if (kittens == null && !(collectionDataController == null)) {
+                        System.out.println("Hello PAGE!");
+                        kittens = new ArrayList<>();
+                        List<Kitten> bufferKittens = new ArrayList<>(collectionDataController.getAllKittensOfStudent(this));
+                        int diff = bufferKittens.size();
+
+                        if (diff == 0) {
+                            System.out.println("Вы дошли до конца коллекции");
+                        }
+                        if (diff <= collectionField.pageSize()) {
+                            for (int i = 0; i < diff; i++) {
+                                kittens.add(bufferKittens.get(kittens.size()));
+                            }
+                        }
+                        for (int i = 0; i < collectionField.pageSize(); i++) {
+                            kittens.add(bufferKittens.get(kittens.size()));
+                        }
+                        validated = true;
+                    } else if (!(kittens == null) && !(collectionDataController == null)) {
+                        List<Kitten> bufferKittens = new ArrayList<>(collectionDataController.getAllKittensOfStudent(this));
+                        for (int i = 0; i < collectionField.pageSize(); i++) {
+                            kittens.add(bufferKittens.get(kittens.size()));
+                        }
+                        validated = true;
+                    }
                 }
             }
         }
