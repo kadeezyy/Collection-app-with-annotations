@@ -30,8 +30,8 @@ public class PostgreSQLDatabase implements IDatabase{
                     username, password);
             System.out.println("Соединение с базой данных успешно установлено.");
         } catch (SQLException ex) {
-            System.out.println("Соединение с базой данных не было установлено: отключение.");
             ex.printStackTrace();
+            System.out.println("Соединение с базой данных не было установлено: отключение.");
             System.exit(0);
         }
     }
