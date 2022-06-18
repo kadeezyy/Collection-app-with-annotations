@@ -32,6 +32,7 @@ public class SSHTunnel {
             session.connect(3000);
             return session.setPortForwardingL(tunnelLocalPort, tunnelRemoteHost, tunnelRemotePort);
         } catch (JSchException ex) {
+            ex.printStackTrace();
             System.out.println("Подключение через SSH-туннель не было установлено: отключение.");
             System.exit(0);
         }

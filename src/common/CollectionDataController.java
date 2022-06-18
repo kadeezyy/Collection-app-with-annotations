@@ -14,8 +14,8 @@ public class CollectionDataController {
     public CollectionDataController(PostgreSQLDatabase database) {
         this.database = database;
         try {
-            database.executeQuery("DROP TABLE IF EXISTS kitten_collection ").close();
-            database.executeQuery("DROP TABLE IF EXISTS students_collection ").close();
+//            database.executeQuery("DROP TABLE IF EXISTS kitten_collection ").close();
+//            database.executeQuery("DROP TABLE IF EXISTS students_collection ").close();
             database.executeQuery("CREATE TABLE IF NOT EXISTS students_collection (" +
                     "id bigint PRIMARY KEY UNIQUE, " +
                     "name varchar(128) NOT NULL, " +
@@ -52,12 +52,29 @@ public class CollectionDataController {
         }
     }
 
-    public List<String> getAllName() {
-        List<String> studentsName = new ArrayList<>();
-        for (Student student : getAll()) {
-            studentsName.add(student.getName());
+    public Student getStudentById(int id) {
+        try {
+            ResultSet resultSet = database.executeQuery("SELECT * FROM students_collection WHERE id=%d", id);
+            resultSet.next();
+            Student student = construct(resultSet);
+            resultSet.close();
+            return student;
+        } catch (SQLException ex) {
         }
-        return studentsName;
+        return null;
+    }
+
+    public Kitten getByKey(int key) {
+        try {
+            ResultSet resultSet = database.executeQuery("SELECT * FROM kitten_collection WHERE id=%d", key);
+            resultSet.next();
+            Kitten kitten = constructKitten(resultSet).get(1);
+            resultSet.close();
+            return kitten;
+        } catch (SQLException ex) {
+            ex.getMessage();
+            return null;
+        }
     }
 
     public List<Student> getAll() {
@@ -73,48 +90,26 @@ public class CollectionDataController {
         return students;
     }
 
-    public List<String> getAllStudentsOfKitten(Kitten kitten){
+    public List<String> getAllStudentsOfKitten(Kitten kitten) {
         List<String> students = new ArrayList<>();
-        try{
+        try {
             ResultSet resultSet = database.executeQuery("SELECT favourite_students FROM kitten_collection WHERE name='%s'", kitten.getName());
             resultSet.next();
-            students.add(resultSet.getString(1));
+            students.add(String.format("%s", resultSet.getString(1)));
             resultSet.close();
             return students;
-        }catch (SQLException ex){
-            ex.printStackTrace();
-            return null;
-        }
-    }
-
-    public List<String> getAllKittensOfStudent(Student student) {
-        List<String> kittens = new ArrayList<>();
-        try {
-            ResultSet resultSet = database.executeQuery("SELECT kittens_name FROM students_collection WHERE name='%s'", student.getName());
-            resultSet.next();
-            kittens.add(resultSet.getString(1));
-            resultSet.close();
-            return kittens;
         } catch (SQLException ex) {
             ex.printStackTrace();
             return null;
         }
     }
 
-    public List<String> getALlKittensNames() {
-        List<String> kittensNames = new ArrayList<>();
-        for (Kitten kitten : getAllKittens()) {
-            kittensNames.add(kitten.getName());
-        }
-        return kittensNames;
-    }
-
-    public List<Kitten> getAllKittens() {
+    public List<Kitten> getAllKittensOfStudent(Student student) {
         List<Kitten> kittens = new ArrayList<>();
         try {
-            ResultSet resultSet = database.executeQuery("SELECT * FROM kitten_collection");
-            while (resultSet.next()) {
-                kittens.add(constructKitten(resultSet));
+            ResultSet resultSet = database.executeQuery("SELECT * FROM students_collection WHERE name='%s'", student.getName());
+            if (resultSet.next()) {
+                kittens.addAll(constructKitten(resultSet));
             }
             resultSet.close();
             return kittens;
@@ -125,16 +120,21 @@ public class CollectionDataController {
         }
     }
 
-    public Kitten constructKitten(ResultSet resultSet) {
+    public List<Kitten> constructKitten(ResultSet resultSet) {
         try {
-            String kittensName = resultSet.getString("name");
-            String[] favouriteStudents = resultSet.getString("favourite_students").trim().split(",");
-            Kitten kitten = new Kitten(kittensName);
-            kitten.setOwner(resultSet.getString("kittens_owner"));
-            for (String name : favouriteStudents) {
-                kitten.addFavouriteStudents(new Student(name));
+            List<Kitten> kittens = new ArrayList<>();
+            String[] kittensName = resultSet.getString("kittens_name").replace("[", "").replace("]", "").split(", ");
+            ResultSet result;
+            for (String name : kittensName) {
+                result = database.executeQuery("SELECT favourite_students FROM kitten_collection WHERE name='%s'", name.trim());
+                Kitten kitten = new Kitten(name);
+                result.next();
+                kitten.addFavouriteStudents(new Student(result.getString(1)));
+                kittens.add(kitten);
+                kitten.setOwner(resultSet.getString("name"));
             }
-            return kitten;
+
+            return kittens;
         } catch (SQLException ex) {
             ex.printStackTrace();
             return null;
@@ -143,8 +143,9 @@ public class CollectionDataController {
 
     public Student construct(ResultSet resultSet) {
         try {
+            List<Kitten> kittens = new ArrayList<>();
             String kittensNameSet = resultSet.getString("kittens_name");
-            String[] kittensName = kittensNameSet.split(",");
+            String[] kittensName = kittensNameSet.replace("[", "").replace("]", "").split(", ");
             Student student = new Student(resultSet.getString("name"));
             for (String name : kittensName) {
                 Kitten kitten = new Kitten(name);
@@ -154,8 +155,9 @@ public class CollectionDataController {
                     kitten.setOwner(owner);
                 }
                 result.close();
-                student.addKittens(kitten);
+                kittens.add(kitten);
             }
+            student.addAllKittens(kittens);
             student.setId(resultSet.getInt("id"));
             return student;
         } catch (SQLException ex) {
@@ -183,7 +185,6 @@ public class CollectionDataController {
             database.setStatement("INSERT INTO students_collection(id, name, kittens_name)  VALUES(?,?,?)");
             database.getStatement().setInt(1, student.getId());
             database.getStatement().setString(2, student.getName());
-//            database.getStatement().setString(3, String.valueOf(student.getName()));
             database.getStatement().setString(3, String.valueOf(kittensNameCollection));
             database.executeQueryStatement().close();
             return true;
@@ -195,10 +196,7 @@ public class CollectionDataController {
 
     public boolean insertKitten(Kitten kitten) {
         try {
-            List<String> students = new ArrayList<>();
-            for (Student student : kitten.getFavouriteStudents()){
-                students.add(student.getName());
-            }
+            List<String> students = (List<String>) kitten.getFavouriteStudents();
             ResultSet resultSet = database.executeQuery("SELECT nextval('kittens_id_sequence')");
             resultSet.next();
             int id = resultSet.getInt(1);

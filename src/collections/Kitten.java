@@ -5,7 +5,7 @@ import java.util.Collection;
 
 public class Kitten {
     private final String name;
-    private final Collection<Student> favouriteStudents = new ArrayList<>();
+    private final Collection<String> favouriteStudents = new ArrayList<>();
     private String owner;
 
     public Kitten(String name) {
@@ -13,11 +13,17 @@ public class Kitten {
     }
 
     public void addFavouriteStudents(Student student) {
-        favouriteStudents.add(student);
+        favouriteStudents.add(student.getName());
     }
 
-    public Collection<Student> getFavouriteStudents() {
+    public Collection<String> getFavouriteStudents() {
         return favouriteStudents;
+    }
+
+    public String toString() {
+        return (String.format("Котенок по имени %s, любимые студенты:  \n" +
+                "%s \nВладелец: %s", name,favouriteStudents.toString().replace("[", "")
+                .replace("]", ""), owner));
     }
 
     public String getName() {
